@@ -1,0 +1,18 @@
+// DAX Query/Script helper — squared Euclidean distance in sRGB space
+DEFINE
+    FUNCTION ColorDistance2 =
+    ( Hex1 : SCALAR STRING, Hex2 : SCALAR STRING )
+    =>
+    VAR H1 = UPPER(SUBSTITUTE(Hex1, "#", ""))
+    VAR H2 = UPPER(SUBSTITUTE(Hex2, "#", ""))
+    VAR D  = "0123456789ABCDEF"
+
+    VAR R1 = (SEARCH(LEFT(H1,1),D,1,0)-1)*16 + (SEARCH(MID(H1,2,1),D,1,0)-1)
+    VAR G1 = (SEARCH(MID(H1,3,1),D,1,0)-1)*16 + (SEARCH(MID(H1,4,1),D,1,0)-1)
+    VAR B1 = (SEARCH(MID(H1,5,1),D,1,0)-1)*16 + (SEARCH(MID(H1,6,1),D,1,0)-1)
+
+    VAR R2 = (SEARCH(LEFT(H2,1),D,1,0)-1)*16 + (SEARCH(MID(H2,2,1),D,1,0)-1)
+    VAR G2 = (SEARCH(MID(H2,3,1),D,1,0)-1)*16 + (SEARCH(MID(H2,4,1),D,1,0)-1)
+    VAR B2 = (SEARCH(MID(H2,5,1),D,1,0)-1)*16 + (SEARCH(MID(H2,6,1),D,1,0)-1)
+
+    RETURN (R1-R2)^2 + (G1-G2)^2 + (B1-B2)^2
