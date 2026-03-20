@@ -1,0 +1,118 @@
+// =====================================
+// Generic Luminance & Contrast Measures
+// =====================================
+// This file avoids any table/column references.
+// Requirements:
+//   • A measure returning the current Background hex string: [Hex (Background)]
+//   • A measure returning the current Foreground hex string: [Hex (Foreground)]
+//   • (Optional) A table 'Palette'[Hex] if you want nearest passing colour suggestion
+//
+// Notes:
+//   - HEX should be like "#RRGGBB" (case-insensitive).
+//   - The sRGB piecewise threshold is set to 0.04045.
+
+// -----------------------------
+// Internal helper: Hex → Y (0..1)
+// -----------------------------
+__Luminance From Hex (Helper) =
+VAR HexInput = SELECTEDVALUE ( _HexContext[Value] )  // shim context; do not use directly
+VAR Hex = UPPER ( SUBSTITUTE ( HexInput, "#", "" ) )
+VAR Digits = "0123456789ABCDEF"
+VAR Rdec =
+    ( SEARCH ( LEFT ( Hex, 1 ), Digits, 1, 0 ) - 1 ) * 16
+    + ( SEARCH ( MID ( Hex, 2, 1 ), Digits, 1, 0 ) - 1 )
+VAR Gdec =
+    ( SEARCH ( MID ( Hex, 3, 1 ), Digits, 1, 0 ) - 1 ) * 16
+    + ( SEARCH ( MID ( Hex, 4, 1 ), Digits, 1, 0 ) - 1 )
+VAR Bdec =
+    ( SEARCH ( MID ( Hex, 5, 1 ), Digits, 1, 0 ) - 1 ) * 16
+    + ( SEARCH ( MID ( Hex, 6, 1 ), Digits, 1, 0 ) - 1 )
+VAR R = Rdec / 255.0
+VAR G = Gdec / 255.0
+VAR B = Bdec / 255.0
+VAR t = 0.04045
+VAR Rlin = IF ( R <= t, R / 12.92, POWER ( ( R + 0.055 ) / 1.055, 2.4 ) )
+VAR Glin = IF ( G <= t, G / 12.92, POWER ( ( G + 0.055 ) / 1.055, 2.4 ) )
+VAR Blin = IF ( B <= t, B / 12.92, POWER ( ( B + 0.055 ) / 1.055, 2.4 ) )
+RETURN 0.2126 * Rlin + 0.7152 * Glin + 0.0722 * Blin
+
+// ------------------------------------------------------------------
+// Luminance Background (Generic) — uses the user's [Hex (Background)]
+// ------------------------------------------------------------------
+Luminance Background (Generic) =
+VAR HexB = [Hex (Background)]
+RETURN
+    IF (
+        NOT ISBLANK ( HexB ),
+        VAR _HexContext =
+            SELECTCOLUMNS ( DATATABLE ( "Value", STRING, { { HexB } } ), "Value", [Value] )
+        RETURN
+            CALCULATE ( [__Luminance From Hex (Helper)], _HexContext )
+    )
+
+// ------------------------------------------------------------------
+// Luminance Foreground (Generic) — uses the user's [Hex (Foreground)]
+// ------------------------------------------------------------------
+Luminance Foreground (Generic) =
+VAR HexF = [Hex (Foreground)]
+RETURN
+    IF (
+        NOT ISBLANK ( HexF ),
+        VAR _HexContext =
+            SELECTCOLUMNS ( DATATABLE ( "Value", STRING, { { HexF } } ), "Value", [Value] )
+        RETURN
+            CALCULATE ( [__Luminance From Hex (Helper)], _HexContext )
+    )
+
+// ---------------------------
+// Contrast Ratio (Generic)
+// ---------------------------
+Contrast Ratio (Generic) =
+VAR Lb = [Luminance Background (Generic)]
+VAR Lf = [Luminance Foreground (Generic)]
+RETURN
+    IF (
+        ISBLANK ( Lb ) || ISBLANK ( Lf ),
+        BLANK (),
+        DIVIDE ( MAX ( Lb, Lf ) + 0.05, MIN ( Lb, Lf ) + 0.05 )
+    )
+
+// -------------------------------------------------------------
+// WCAG Target (Effective)
+// Supply your own [WCAG Target (User)], or this defaults to 4.5
+// -------------------------------------------------------------
+WCAG Target (Effective) =
+VAR UserTarget = [WCAG Target (User)]  // optional user-defined numeric measure
+RETURN COALESCE ( UserTarget, 4.5 )
+
+// ==================================================================
+// (Optional) Nearest Passing HEX — requires a generic 'Palette'[Hex]
+// ==================================================================
+// This tries to find the closest HEX in 'Palette'[Hex] that meets
+// the selected WCAG target. It prefers changing the Foreground first.
+Nearest Passing HEX (Generic) =
+VAR Target = [WCAG Target (Effective)]
+VAR BackHex = [Hex (Background)]
+VAR CurForeHex = [Hex (Foreground)]
+VAR Lb = [Luminance Background (Generic)]
+VAR Lf = [Luminance Foreground (Generic)]
+VAR CurrentCR =
+    IF (
+        ISBLANK ( Lb ) || ISBLANK ( Lf ),
+        BLANK (),
+        DIVIDE ( MAX ( Lb, Lf ) + 0.05, MIN ( Lb, Lf ) + 0.05 )
+    )
+VAR NeedsFix = NOT ISBLANK ( CurrentCR ) && CurrentCR < Target
+
+// Helper to compute luminance for a candidate HEX value
+VAR PaletteWithL =
+    ADDCOLUMNS (
+        VALUES ( 'Palette'[Hex] ),
+        "L",
+            VAR H = UPPER ( SUBSTITUTE ( 'Palette'[Hex], "#", "" ) )
+            VAR D = "0123456789ABCDEF"
+            VAR Rdec = (SEARCH(LEFT(H,1),D,1,0)-1)*16 + (SEARCH(MID(H,2,1),D,1,0)-1)
+            VAR Gdec = (SEARCH(MID(H,3,1),D,1,0)-1)*16 + (SEARCH(MID(H,4,1),D,1,0)-1)
+            VAR Bdec = (SEARCH(MID(H,5,1),D,1,0)-1)*16 + (SEARCH(MID(H,6,1),D,1,0)-1)
+            VAR R = Rdec / 255.0
+            VAR G = Gdec / 255.0
