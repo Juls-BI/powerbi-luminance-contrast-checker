@@ -17,6 +17,14 @@ Common targets: **4.5:1** (normal text), **3:1** (large text), **7:1** (enhanced
 Relative luminance uses sRGB → linear RGB conversion and the weighted formula  
 **Y = 0.2126R + 0.7152G + 0.0722B**, using the current gamma threshold **0.04045**.
 
+
+## Example: WCAG Contrast Checker in Power BI
+
+![WCAG Contrast Checker screenshot](images/Contrast%20Checker%20Matrix.png)
+
+*The report displays a foreground HEX selector, WCAG criteria buttons, and a compliance matrix showing contrast ratios, pass/fail results, and automatically suggested alternative colours when a combination does not meet the chosen WCAG threshold.*
+
+
 ## What’s in this repository
 src/
 dax/
