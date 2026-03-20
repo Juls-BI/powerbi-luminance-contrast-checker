@@ -1,0 +1,24 @@
+// DAX Query/Script helper — user-defined function (not persisted in model)
+// Returns WCAG relative luminance (0..1) for a HEX string like "#RRGGBB" or "RRGGBB".
+DEFINE
+    FUNCTION HexLuminance =
+    ( HexCode : SCALAR STRING )
+    =>
+    VAR Hex = UPPER(SUBSTITUTE(HexCode, "#", ""))
+    VAR Digits = "0123456789ABCDEF"
+
+    VAR Rdec = (SEARCH(LEFT(Hex,1),Digits,1,0)-1) * 16 + (SEARCH(MID(Hex,2,1),Digits,1,0)-1)
+    VAR Gdec = (SEARCH(MID(Hex,3,1),Digits,1,0)-1) * 16 + (SEARCH(MID(Hex,4,1),Digits,1,0)-1)
+    VAR Bdec = (SEARCH(MID(Hex,5,1),Digits,1,0)-1) * 16 + (SEARCH(MID(Hex,6,1),Digits,1,0)-1)
+
+    VAR R = Rdec / 255.0
+    VAR G = Gdec / 255.0
+    VAR B = Bdec / 255.0
+
+    // Use current WCAG sRGB threshold (0.04045). Change to 0.03928 to match legacy materials.
+    VAR thresh = 0.04045
+    VAR Rlin = IF(R <= thresh, R / 12.92, POWER((R + 0.055) / 1.055, 2.4))
+    VAR Glin = IF(G <= thresh, G / 12.92, POWER((G + 0.055) / 1.055, 2.4))
+    VAR Blin = IF(B <= thresh, B / 12.92, POWER((B + 0.055) / 1.055, 2.4))
+
+    RETURN 0.2126 * Rlin + 0.7152 * Glin + 0.0722 * Blin
